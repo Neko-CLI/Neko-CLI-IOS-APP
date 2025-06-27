@@ -283,7 +283,6 @@ class _NekoCLINewsletterPageState extends State<NekoCLINewsletterPage> {
     }
   }
 
-  // Segnaposto scheletro per il caricamento
   Widget _buildSkeletonLine({double width = double.infinity, double height = 12.0}) {
     return Container(
       width: width,
@@ -382,7 +381,6 @@ class _NekoCLINewsletterPageState extends State<NekoCLINewsletterPage> {
     );
   }
 
-  // Aiutante per ottenere l'icona/emoji del tipo di commit
   String _getCommitTypeEmoji(String message) {
     if (message.startsWith('feat')) return '✨ Feature:';
     if (message.startsWith('fix')) return '🐛 Bugfix:';
@@ -401,37 +399,37 @@ class _NekoCLINewsletterPageState extends State<NekoCLINewsletterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: 120, // Larghezza adattata per logo e versione
+        leadingWidth: 120,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 8.0, top: 2.0, bottom: 2.0), // Padding verticale ridotto
+          padding: const EdgeInsets.only(left: 8.0, top: 2.0, bottom: 2.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image.network(
-                'https://i.imgur.com/DJzajwA.png', // Logo Neko-CLI
-                width: 30, // Immagine leggermente più piccola
-                height: 30, // Immagine leggermente più piccola
+                'https://i.imgur.com/DJzajwA.png',
+                width: 30,
+                height: 30,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.code, // Icona di fallback
+                  Icons.code,
                   color: Theme.of(context).colorScheme.primary,
-                  size: 22, // Dimensione icona di fallback adattata
+                  size: 22,
                 ),
               ),
-              const SizedBox(height: 2), // Spazio più piccolo tra logo e versione
+              const SizedBox(height: 2),
               _isLoadingVersion
-                  ? _buildSkeletonLine(width: 40, height: 10) // Scheletro più piccolo per la versione
+                  ? _buildSkeletonLine(width: 40, height: 10)
                   : _errorMessageVersion != null
                   ? Tooltip(
                 message: _errorMessageVersion!,
-                child: const Icon(Icons.error, size: 12, color: Colors.redAccent), // Icona di errore più piccola
+                child: const Icon(Icons.error, size: 12, color: Colors.redAccent),
               )
                   : Text(
                 'v$_currentNekoCliVersion',
                 style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                   color: Colors.blueAccent,
                   fontFamily: 'Fira Code',
-                  fontSize: 9, // Numero di versione molto compatto
+                  fontSize: 9,
                 ),
               ),
             ],
@@ -770,7 +768,7 @@ class _NekoCLINewsletterPageState extends State<NekoCLINewsletterPage> {
                                       _buildDetailRow('Committer:', '$committerName <$committerEmail>', Theme.of(context).textTheme.bodyMedium!),
                                     _buildDetailRow('Date:', formattedDate, Theme.of(context).textTheme.bodyMedium!),
 
-                                    const SizedBox(height: 5.0), // Ridotto da 8.0 a 5.0
+                                    const SizedBox(height: 5.0),
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: TextButton.icon(
@@ -794,7 +792,7 @@ class _NekoCLINewsletterPageState extends State<NekoCLINewsletterPage> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 5.0), // Aggiunto per separare i pulsanti
+                                    const SizedBox(height: 5.0),
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: ElevatedButton.icon(
@@ -857,10 +855,9 @@ class _NekoCLINewsletterPageState extends State<NekoCLINewsletterPage> {
     );
   }
 
-  // Widget di aiuto per le righe di dettaglio nelle card dei commit
   Widget _buildDetailRow(String label, String value, TextStyle valueStyle) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.0), // Ridotto da 2.0 a 1.0
+      padding: const EdgeInsets.symmetric(vertical: 1.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
