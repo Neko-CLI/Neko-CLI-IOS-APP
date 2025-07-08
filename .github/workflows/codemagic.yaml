@@ -1,5 +1,207 @@
+# codemagic.yaml
+# Questo file definisce il workflow di build per il tuo progetto iOS su Codemagic.
+# Deve essere posizionato nella directory radice del tuo repository Git.
+
 workflows:
-    sample-workflow:
-        name: Codemagic Sample Workflow
-        max_build_duration: 120
-        instance_type: mac_mini_m2
+  ios-app-workflow: # Nome univoco per questo workflow
+    name: iOS App Build and Distribute # Nome visualizzato nell'interfaccia di Codemagic
+    instance_type: mac_mini_m2 # Tipo di istanza macOS su cui verrà eseguita la build
+    max_build_duration: 90 # Durata massima della build in minuti (qui 90 minuti)
+
+    # --------------------------------------------------------------------------
+    # 1. Variabili d'ambiente
+    #   Qui definiamo le variabili d'ambiente necessarie per la build,
+    #   specialmente per la firma del codice (code signing) e la distribuzione.
+    #   Le variabili sensibili (come le password o i token) dovrebbero essere
+    #   configurate come variabili d'ambiente "secure" nell'interfaccia di Codemagic
+    #   e non direttamente in questo file.
+    # --------------------------------------------------------------------------
+    environment:
+      vars:
+        # Nome del tuo progetto Xcode (es. MyAwesomeApp.xcodeproj)
+        XCODE_PROJECT: "Neko-CLI-IOS-APP.xcodeproj"
+        # Nome dello schema Xcode da buildare (es. MyAwesomeApp)
+        XCODE_SCHEME: "Neko-CLI-IOS-APP"
+        # Nome del tuo workspace Xcode se ne usi uno (es. MyAwesomeApp.xcworkspace)
+        # Se non usi un workspace, puoi commentare o rimuovere questa riga.
+        # XCODE_WORKSPACE: "Neko-CLI-IOS-APP.xcworkspace"
+
+        # Variabili per la firma del codice (Code Signing)
+        # Queste variabili DEVONO essere configurate come variabili d'ambiente SECURE
+        # nell'interfaccia di Codemagic (Settings -> Environment variables).
+        # Non inserirle qui direttamente per motivi di sicurezza!
+        # APPLE_ID: "tuo_apple_id@example.com"
+        # APP_SPECIFIC_PASSWORD: "la_tua_password_specifica_app"
+        # CERTIFICATE_PRIVATE_KEY: |
+        #   -----BEGIN ENCRYPTED PRIVATE KEY-----
+        #   ... (la tua chiave privata del certificato)
+        #   -----END ENCRYPTED PRIVATE KEY-----
+        # CERTIFICATE_PASSWORD: "password_del_certificato" # Se il certificato ha una password
+        # PROFILE_BASE64: "base64_del_profilo_di_provisioning" # Se carichi il profilo manualmente
+
+    # --------------------------------------------------------------------------
+    # 2. Dipendenze
+    #   Qui installiamo le dipendenze necessarie per la build.
+    #   Esempio per CocoaPods. Se usi Swift Package Manager, questa sezione
+    #   potrebbe non essere necessaria o essere diversa.
+    # --------------------------------------------------------------------------
+    triggering:
+      branch:
+        - main # Triggera la build su ogni push al branch 'main'
+        - develop # Triggera la build su ogni push al branch 'develop'
+      # Puoi anche configurare trigger per tag o pull requests
+
+    scripts:
+      # Installazione di CocoaPods (se il tuo progetto lo usa)
+      - name: Install CocoaPods
+        script: |
+          # Assicurati che CocoaPods sia installato
+          gem install cocoapods
+          # Naviga nella directory del progetto iOS se il Podfile non è nella root
+          # cd ios
+          pod install --repo-update
+          # cd .. # Torna alla root del repository se sei entrato in una sottodirectory
+
+      # --------------------------------------------------------------------------
+      # 3. Code Signing (Firma del codice)
+      #   Questo è un passaggio CRUCIALE per le app iOS. Codemagic offre diverse
+      #   opzioni per la firma del codice. L'approccio più comune è usare
+      #   l'integrazione automatica di Codemagic con Apple Developer Portal
+      #   o caricare manualmente certificati e profili.
+      #   Qui mostriamo un esempio che si affida alle variabili d'ambiente
+      #   configurate nell'interfaccia di Codemagic.
+      # --------------------------------------------------------------------------
+      - name: Set up Code Signing
+        script: |
+          # Questo script è un placeholder. Codemagic gestisce la firma del codice
+          # in base alle configurazioni che imposti nell'interfaccia utente
+          # (ad esempio, "Automatic Code Signing" o "Manual Code Signing" con
+          # i certificati e profili caricati o generati).
+          # Non dovresti aver bisogno di comandi specifici qui se usi l'automazione di Codemagic.
+          # Se stai usando un approccio manuale molto specifico, potresti aver bisogno
+          # di comandi come `keychain initialize` e `app-store-connect fetch-signing-files`.
+          echo "Code signing will be handled by Codemagic's built-in features."
+          echo "Ensure your Apple Developer Portal integration is configured correctly."
+
+      # --------------------------------------------------------------------------
+      # 4. Build dell'Applicazione (Archiviazione)
+      #   Questo comando crea l'archivio .xcarchive, che è il primo passo
+      #   per generare l'IPA.
+      # --------------------------------------------------------------------------
+      - name: Build iOS App (Archive)
+        script: |
+          # Pulizia del progetto
+          xcodebuild clean -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" || \
+          xcodebuild clean -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME"
+
+          # Archiviazione del progetto
+          # Usa -project o -workspace a seconda della tua configurazione
+          if [ -n "$XCODE_WORKSPACE" ]; then
+            xcodebuild archive \
+              -workspace "$XCODE_WORKSPACE" \
+              -scheme "$XCODE_SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -archivePath "build/ios/Runner.xcarchive" \
+              DEVELOPMENT_TEAM="${CM_TEAM_ID}" \
+              PROVISIONING_PROFILE_SPECIFIER="${CM_PROVISIONING_PROFILE_SPECIFIER}" \
+              CODE_SIGN_IDENTITY="${CM_CODE_SIGN_IDENTITY}" \
+              GCC_PREPROCESSOR_DEFINITIONS='$(inherited) COCOAPODS=1'
+          else
+            xcodebuild archive \
+              -project "$XCODE_PROJECT" \
+              -scheme "$XCODE_SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -archivePath "build/ios/Runner.xcarchive" \
+              DEVELOPMENT_TEAM="${CM_TEAM_ID}" \
+              PROVISIONING_PROFILE_SPECIFIER="${CM_PROVISIONING_PROFILE_SPECIFIER}" \
+              CODE_SIGN_IDENTITY="${CM_CODE_SIGN_IDENTITY}" \
+              GCC_PREPROCESSOR_DEFINITIONS='$(inherited) COCOAPODS=1'
+          fi
+
+      # --------------------------------------------------------------------------
+      # 5. Esportazione dell'IPA
+      #   Questo comando genera il file .ipa dall'archivio creato.
+      #   Il file `ExportOptions.plist` è cruciale e definisce il metodo di esportazione
+      #   (ad hoc, app-store, development, enterprise).
+      # --------------------------------------------------------------------------
+      - name: Export IPA
+        script: |
+          # Crea un file ExportOptions.plist temporaneo.
+          # Questo esempio è per la distribuzione App Store.
+          # Per TestFlight (Ad Hoc), cambia 'method' a 'ad-hoc'.
+          # Puoi anche creare questo file e committarlo nel tuo repository.
+          cat > ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string> <!-- Cambia a 'ad-hoc' per TestFlight -->
+              <key>teamID</key>
+              <string>${CM_TEAM_ID}</string>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          # Esporta l'IPA
+          xcodebuild -exportArchive \
+            -archivePath "build/ios/Runner.xcarchive" \
+            -exportOptionsPlist "ExportOptions.plist" \
+            -exportPath "build/ios"
+
+    # --------------------------------------------------------------------------
+    # 6. Artefatti
+    #   Specifica quali file devono essere salvati come artefatti della build.
+    #   L'IPA è l'artefatto principale.
+    # --------------------------------------------------------------------------
+    artifacts:
+      - build/ios/*.ipa # Salva tutti i file .ipa generati
+
+    # --------------------------------------------------------------------------
+    # 7. Pubblicazione (Distribuzione)
+    #   Qui configuri dove vuoi distribuire la tua app dopo una build di successo.
+    #   Puoi usare TestFlight, App Store Connect, Firebase App Distribution, ecc.
+    # --------------------------------------------------------------------------
+    publishing:
+      # Esempio di pubblicazione su App Store Connect (per TestFlight o App Store)
+      app_store_connect:
+        # Queste variabili DEVONO essere configurate come variabili d'ambiente SECURE
+        # nell'interfaccia di Codemagic.
+        # API_KEY_ID: $CM_API_KEY_ID
+        # ISSUER_ID: $CM_ISSUER_ID
+        # PRIVATE_KEY: $CM_PRIVATE_KEY
+        #
+        # Nota: CM_API_KEY_ID, CM_ISSUER_ID, CM_PRIVATE_KEY sono nomi di variabili
+        # che dovresti usare se configuri una chiave API di App Store Connect
+        # in Codemagic.
+        #
+        # type: TestFlight # Per distribuire solo a TestFlight
+        # type: AppStore # Per distribuire direttamente all'App Store (richiede revisione)
+        # track: beta # Per TestFlight, specifica il canale (es. 'beta', 'internal')
+        # groups: # Nomi dei gruppi di tester a cui inviare la build
+        #   - "Internal Testers"
+        #   - "External Testers"
+        # notify: true # Invia notifiche ai tester
+        #
+        # build_number: # Opzionale: puoi specificare il numero di build
+        #   - xcode_scheme: "$XCODE_SCHEME"
+
+      # Esempio di pubblicazione su Firebase App Distribution
+      # firebase:
+      #   token: $FIREBASE_TOKEN # Variabile d'ambiente SECURE con il tuo token Firebase
+      #   app_id: your_firebase_app_id # ID della tua app Firebase
+      #   groups:
+      #     - "testers" # Nomi dei gruppi di tester Firebase
+
+      # Esempio di notifica Slack
+      # slack:
+      #   channel: "#build-notifications"
+      #   notify_on_build_status_change: true
+      #   filter_failed_builds: true
+      #   filter_success_builds: true
